@@ -1,56 +1,28 @@
 import argparse
 import csv
-from typing import List, Dict, Union
-from src.ranking import Ranking, get_match_result, MatchResult
+from typing import List, Dict
+from src.ranking import Ranking, MatchResult, Match
 
 
-class Match:
+def get_match_from_input_row(input_row: List[str]) -> Match:
     """
-    Representation of a match between two teams as parsed from csv row input
-    Provided to reduce coupling between `get_match_result` and csv input format
+    Parse csv input row and map to team name and score attributes
+    Provided to reduce coupling between `Match` and csv input format
+
+    Args:
+        input_row: csv input row as List of strs
+
+    Returns: None
     """
-    def __init__(self, input_row):
-        self._parse_input_row(input_row)
+    team_a_split = input_row[0].split()
+    team_b_split = input_row[1].split()
 
-    def _parse_input_row(self, input_row: List[str]) -> None:
-        """
-        Parse csv input row and map to team name and score attributes
-
-        Args:
-            input_row: csv input row as List of strs
-
-        Returns: None
-        """
-        team_a_split = input_row[0].split()
-        team_b_split = input_row[1].split()
-
-        self.team_name_a = " ".join(team_a_split[:-1])
-        self.score_a = int(team_a_split[-1])
-        self.team_name_b = " ".join(team_b_split[:-1])
-        self.score_b = int(team_b_split[-1])
-
-    def get_match_result_args(self) -> Dict[str, Union[str, int]]:
-        """
-        Return the expected kwargs for `get_match_results`
-
-        Returns: Dict of { <kwarg_name>: value }
-
-        """
-        return {
-            self.Meta.TEAM_NAME_A_ARG: self.team_name_a,
-            self.Meta.SCORE_A_ARG: self.score_a,
-            self.Meta.TEAM_NAME_B_ARG: self.team_name_b,
-            self.Meta.SCORE_B_ARG: self.score_b
-        }
-
-    class Meta:
-        """
-        Used to map the arguments of `get_match_results` incase its signature changes
-        """
-        TEAM_NAME_A_ARG = "team_name_a"
-        SCORE_A_ARG = "score_a"
-        TEAM_NAME_B_ARG = "team_name_b"
-        SCORE_B_ARG = "score_b"
+    return Match(
+        team_name_a=" ".join(team_a_split[:-1]),
+        score_a=int(team_a_split[-1]),
+        team_name_b=" ".join(team_b_split[:-1]),
+        score_b=int(team_b_split[-1])
+    )
 
 
 def generate_all_rankings(input_file: str) -> Dict[str, Ranking]:
@@ -73,8 +45,8 @@ def generate_all_rankings(input_file: str) -> Dict[str, Ranking]:
         file_reader = csv.reader(file)
         for row in file_reader:
             if file_reader.line_num > 1:  # Skip header
-                match = Match(row)
-                match_results = get_match_result(**match.get_match_result_args())
+                match = get_match_from_input_row(row)
+                match_results = match.get_match_result()
                 for team_name in [match.team_name_a, match.team_name_b]:
                     add_to_all_rankings(team_name, match_results)
 

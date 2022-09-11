@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Dict
+from dataclasses import dataclass
 
 
 class MatchResult(Enum):
@@ -19,36 +20,37 @@ SCORE_MAP = {
 }
 
 
-def get_match_result(team_name_a: str, score_a: int, team_name_b: str, score_b: int) -> Dict[str, MatchResult]:
-    """
-    Given two teams and corresponding scores, return the match results
-    as dict of { team_name: MatchResult }
+@dataclass
+class Match:
+    team_name_a: str
+    score_a: int
+    team_name_b: str
+    score_b: int
 
-    Args:
-        team_name_a: Team A's name
-        score_a: Team A's score in the match
-        team_name_b: Team B's name
-        score_b: Team B's score in the match
+    def get_match_result(self) -> Dict[str, MatchResult]:
+        """
+        Given two teams and corresponding scores, return the match results
+        as dict of { team_name: MatchResult }
 
-    Returns: Results Dict
+        Returns: Results Dict { team_name: MatchResult }
 
-    """
-    if score_a > score_b:  # Team A won
-        result = {
-            team_name_a: MatchResult.WIN,
-            team_name_b: MatchResult.LOSS
-        }
-    elif score_b > score_a:  # Team B won
-        result = {
-            team_name_a: MatchResult.LOSS,
-            team_name_b: MatchResult.WIN
-        }
-    else:  # Tie
-        result = {
-            team_name_a: MatchResult.TIE,
-            team_name_b: MatchResult.TIE
-        }
-    return result
+        """
+        if self.score_a > self.score_b:  # Team A won
+            result = {
+                self.team_name_a: MatchResult.WIN,
+                self.team_name_b: MatchResult.LOSS
+            }
+        elif self.score_b > self.score_a:  # Team B won
+            result = {
+                self.team_name_a: MatchResult.LOSS,
+                self.team_name_b: MatchResult.WIN
+            }
+        else:  # Tie
+            result = {
+                self.team_name_a: MatchResult.TIE,
+                self.team_name_b: MatchResult.TIE
+            }
+        return result
 
 
 def get_score(match_result: MatchResult, score_map: Dict[MatchResult, int] = None) -> int:
