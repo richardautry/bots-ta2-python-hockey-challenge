@@ -1,5 +1,5 @@
 # Ignore everything in the output directory
-./output/
+./output/*
 
 # Custom ignores
 .rpa/
