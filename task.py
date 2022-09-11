@@ -1,27 +1,124 @@
 import argparse
 import csv
 from typing import List, Dict, Union
+from src.ranking import Ranking, get_match_result, MatchResult
 
-from src.ranking import Ranking, get_match_result
 
-
-def parse_input_row(input_row: List[str]) -> Dict[str, Union[str, int]]:
+class Match:
     """
-    Parse csv input row according to required arguments in `ranking.get_match_result`
+    Representation of a match between two teams as parsed from csv row input
+    Provided to reduce coupling between `get_match_result` and csv input format
+    """
+    def __init__(self, input_row):
+        self._parse_input_row(input_row)
+
+    def _parse_input_row(self, input_row: List[str]) -> None:
+        """
+        Parse csv input row and map to team name and score attributes
+
+        Args:
+            input_row: csv input row as List of strs
+
+        Returns: None
+        """
+        team_a_split = input_row[0].split()
+        team_b_split = input_row[1].split()
+
+        self.team_name_a = " ".join(team_a_split[:-1])
+        self.score_a = int(team_a_split[-1])
+        self.team_name_b = " ".join(team_b_split[:-1])
+        self.score_b = int(team_b_split[-1])
+
+    def get_match_result_args(self) -> Dict[str, Union[str, int]]:
+        """
+        Return the expected kwargs for `get_match_results`
+
+        Returns: Dict of { <kwarg_name>: value }
+
+        """
+        return {
+            self.Meta.TEAM_NAME_A_ARG: self.team_name_a,
+            self.Meta.SCORE_A_ARG: self.score_a,
+            self.Meta.TEAM_NAME_B_ARG: self.team_name_b,
+            self.Meta.SCORE_B_ARG: self.score_b
+        }
+
+    class Meta:
+        """
+        Used to map the arguments of `get_match_results` incase its signature changes
+        """
+        TEAM_NAME_A_ARG = "team_name_a"
+        SCORE_A_ARG = "score_a"
+        TEAM_NAME_B_ARG = "team_name_b"
+        SCORE_B_ARG = "score_b"
+
+
+def generate_all_rankings(input_file: str) -> Dict[str, Ranking]:
+    """
+    Given a csv input file,  create dictionary of all rankings for each team in the file
+    Args:
+        input_file: csv file path
+
+    Returns: Dict of { <team_name>: Ranking object }
+    """
+    all_rankings = dict()
+
+    def add_to_all_rankings(team_name: str, match_results: Dict[str, MatchResult]):
+        if not all_rankings.get(team_name):
+            all_rankings[team_name] = Ranking(team_name)
+
+        all_rankings[team_name].add_score(match_results[team_name])
+
+    with open(input_file) as file:
+        file_reader = csv.reader(file)
+        for row in file_reader:
+            if file_reader.line_num > 1:  # Skip header
+                match = Match(row)
+                match_results = get_match_result(**match.get_match_result_args())
+                for team_name in [match.team_name_a, match.team_name_b]:
+                    add_to_all_rankings(team_name, match_results)
+
+    return all_rankings
+
+
+def write_output(output_file: str, all_rankings: Dict[str, Ranking]) -> None:
+    """
+    Write all given rankings to given csv output_file using
+    Standard Competition ranking ("1224" ranking)
+    https://en.wikipedia.org/wiki/Ranking#Standard_competition_ranking_(%221224%22_ranking)
 
     Args:
-        input_row: csv input row as List of strs
+        output_file: csv file which may or may not exist
+        all_rankings: Dictionary of { <team_name>: Ranking object }
 
-    Returns: Keyword arguments for ranking.get_match_result as dict
+    Returns: None
     """
-    team_a_split = input_row[0].split()
-    team_b_split = input_row[1].split()
-    return {
-        "team_name_a": " ".join(team_a_split[:-1]),
-        "score_a": int(team_a_split[-1]),
-        "team_name_b": " ".join(team_b_split[:-1]),
-        "score_b": int(team_b_split[-1])
-    }
+    def get_header_row() -> List[str]:
+        return ["Place", "Team", "Score"]
+
+    def format_ranking_score(ranking_score: int):
+        ranking_score_unit = "pts"
+        if ranking.score == 1:
+            ranking_score_unit = "pt"
+        return f"{ranking_score} {ranking_score_unit}"
+
+    with open(output_file, 'w') as file:
+        file_writer = csv.writer(file)
+
+        # Write headers
+        file_writer.writerow(get_header_row())
+
+        current_rank = 1
+        prev_ranking = None
+        for ranking in sorted(list(all_rankings.values()), reverse=True):
+            if prev_ranking and prev_ranking.score == ranking.score:
+                ranking.rank = prev_ranking.rank
+            else:
+                ranking.rank = current_rank
+
+            file_writer.writerow([ranking.rank, ranking.team_name, format_ranking_score(ranking.score)])
+            prev_ranking = ranking
+            current_rank += 1
 
 
 def entrypoint() -> None:
@@ -44,46 +141,10 @@ def entrypoint() -> None:
     input_file = args.input_file
     output_file = args.output_file
 
-    # TODO: Add your code here
-    all_rankings = dict()
-    with open(input_file) as file:
-        file_reader = csv.reader(file)
-        for row in file_reader:
-            if file_reader.line_num > 1:  # Skip header
-                parsed_args = parse_input_row(row)
-                team_name_a = parsed_args["team_name_a"]
-                team_name_b = parsed_args["team_name_b"]
-                if not all_rankings.get(team_name_a):
-                    all_rankings[team_name_a] = Ranking(team_name_a)
+    # Generate rankings and write output to file
+    all_rankings = generate_all_rankings(input_file)
+    write_output(output_file, all_rankings)
 
-                if not all_rankings.get(team_name_b):
-                    all_rankings[team_name_b] = Ranking(team_name_b)
-
-                match_results = get_match_result(**parsed_args)
-
-                all_rankings[team_name_a].add_score(match_results[team_name_a])
-                all_rankings[team_name_b].add_score(match_results[team_name_b])
-
-    with open(output_file, 'w') as file:
-        file_writer = csv.writer(file)
-        # Write headers
-        file_writer.writerow(["Place", "Team", "Score"])
-
-        current_rank = 1
-        prev_ranking = None
-        for ranking in sorted(list(all_rankings.values()), reverse=True):
-            if prev_ranking and prev_ranking.score == ranking.score:
-                ranking.rank = prev_ranking.rank
-            else:
-                ranking.rank = current_rank
-
-            ranking_score_unit = "pts"
-            if ranking.score == 1:
-                ranking_score_unit = "pt"
-
-            file_writer.writerow([ranking.rank, ranking.team_name, f"{ranking.score} {ranking_score_unit}"])
-            prev_ranking = ranking
-            current_rank += 1
 
 if __name__ == "__main__":
     entrypoint()

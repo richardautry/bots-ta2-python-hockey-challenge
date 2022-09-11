@@ -68,6 +68,9 @@ def get_score(match_result: MatchResult, score_map: Dict[MatchResult, int] = Non
 
 
 class Ranking:
+    """
+    A basic data class to track a team's overall score and assign rank
+    """
     def __init__(self, team_name: str):
         self.team_name = team_name
         self._score = 0
@@ -77,12 +80,31 @@ class Ranking:
     def score(self):
         return self._score
 
-    def add_score(self, match_result: MatchResult):
+    def add_score(self, match_result: MatchResult) -> None:
+        """
+        Given a MatchResult, calculate and add score
+
+        Args:
+            match_result: MatchResult
+
+        Returns: None
+
+        """
         self._score += get_score(match_result)
 
     def __str__(self):
         return f"{self.team_name}: {self.score}"
 
-    def __gt__(self, other):
-        # TODO: Possibly use lambda instead, also sort by alpha
-        return self.score > other.score
+    def __lt__(self, other: "Ranking") -> bool:
+        """
+        Used to sort by score, then team name
+
+        Args:
+            other: Ranking
+
+        Returns: bool
+        """
+        if self.score == other.score:
+            # If same score, should be sorted by team_name DESCENDING
+            return self.team_name > other.team_name
+        return self.score < other.score  # Sort by score
